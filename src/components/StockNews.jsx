@@ -25,7 +25,8 @@ export default function StockNews({ stock }) {
       setError(null);
       
       const cleanName = getCleanSearchQuery(stock.name, stock.symbol);
-      const apiUrl = `https://api.worldnewsapi.com/search-news?text=${encodeURIComponent(cleanName)}&number=10&sort=publish-time&sort-direction=DESC&language=en&api-key=8f98b99b2edc459f9aa20ab6adeb0328`;
+      const apiKey = import.meta.env.VITE_WORLD_NEWS_API_KEY || "8f98b99b2edc459f9aa20ab6adeb0328";
+      const apiUrl = `https://api.worldnewsapi.com/search-news?text=${encodeURIComponent(cleanName)}&number=10&sort=publish-time&sort-direction=DESC&language=en&api-key=${apiKey}`;
       
       try {
         let response = await fetch(apiUrl);
