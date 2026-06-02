@@ -26,7 +26,7 @@ export default function StockNews({ stock }) {
       
       const cleanName = getCleanSearchQuery(stock.name, stock.symbol);
       const apiKey = import.meta.env.VITE_WORLD_NEWS_API_KEY || "sZZgjTUlDr4q7EsM-JNeInksBelUivnQz_yx0Gat8iajlzjR";
-      const apiUrl = `https://api.worldnewsapi.com/search-news?text=${encodeURIComponent(cleanName)}&number=10&sort=publish-time&sort-direction=DESC&language=en&api-key=${apiKey}`;
+      const apiUrl = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(cleanName)}&page_size=10&language=en&apiKey=${apiKey}`;
       
       try {
         let response = await fetch(apiUrl);
@@ -38,12 +38,12 @@ export default function StockNews({ stock }) {
 
         const data = await response.json();
 
-        if (response.status === 401 || (data && data.status === "failure" && data.code === 401)) {
-          throw new Error("Invalid API Key. Please verify your World News API credentials.");
-        } else if (response.status === 402 || (data && data.status === "failure" && data.code === 402)) {
-          throw new Error("World News API daily free limit reached (50 points/day). Please upgrade your plan or try again tomorrow.");
-        } else if (!response.ok || (data && data.status === "failure")) {
-          throw new Error(data?.message || `News API error (HTTP ${response.status})`);
+        if (response.status === 401 || (data && data.status === "error" && data.code === 401)) {
+          throw new Error("Invalid API Key. Please verify your Currents News API key.");
+        } else if (response.status === 429 || (data && data.status === "error" && data.code === 429)) {
+          throw new Error("Currents API quota limit reached. Please upgrade your API plan or try again tomorrow.");
+        } else if (!response.ok || (data && data.status === "error")) {
+          throw new Error(data?.message || `Currents API error (HTTP ${response.status})`);
         }
 
         if (data && data.news) {
@@ -65,7 +65,7 @@ export default function StockNews({ stock }) {
   const formatPublishDate = (dateStr) => {
     if (!dateStr) return "";
     try {
-      const d = new Date(dateStr.replace(" ", "T")); // Handle date format nicely
+      const d = new Date(dateStr);
       return d.toLocaleDateString("en-IN", {
         month: "short",
         day: "numeric",
@@ -121,27 +121,27 @@ export default function StockNews({ stock }) {
                   <ExternalLink size={12} className="external-link-icon" style={{ marginLeft: "6px", flexShrink: 0 }} />
                 </a>
                 
-                {item.summary && (
-                  <p className="news-item-summary">{item.summary}</p>
+                {item.description && (
+                  <p className="news-item-summary">{item.description}</p>
                 )}
                 
                 <div className="news-item-meta flex-align">
-                  {item.publish_date && (
+                  {item.published && (
                     <span className="meta-tag flex-align">
                       <Clock size={11} style={{ marginRight: "4px" }} />
-                      {formatPublishDate(item.publish_date)}
+                      {formatPublishDate(item.published)}
                     </span>
                   )}
-                  {item.authors && item.authors.length > 0 && (
+                  {item.author && (
                     <span className="meta-tag flex-align">
                       <User size={11} style={{ marginRight: "4px" }} />
-                      {item.authors[0]}
+                      {item.author}
                     </span>
                   )}
                 </div>
               </div>
 
-              {item.image && (
+              {item.image && item.image !== "None" && (
                 <div className="news-item-image-wrapper">
                   <img 
                     src={item.image} 
