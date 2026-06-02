@@ -36,6 +36,8 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [liveIndices, setLiveIndices] = useState([]);
+  const [loadingIndices, setLoadingIndices] = useState(true);
 
   // 4. Watchlist states
   const [watchlist, setWatchlist] = useState([]);
@@ -66,8 +68,9 @@ export default function App() {
       setWatchlist(["TCS.NS", "HDFCBANK.NS"]);
     }
 
-    // 3. Parallel fetch of all Nifty 10 stocks on mount
+    // 3. Parallel fetch of all Nifty 10 stocks and live indices on mount
     fetchNiftyDashboardData();
+    fetchLiveIndices();
   }, []);
 
   // Sync Watchlist in LocalStorage and fetch their live quotes
@@ -115,6 +118,35 @@ export default function App() {
       console.error("Error fetching Nifty carousel metrics:", err);
     } finally {
       setLoadingNifty(false);
+    }
+  };
+
+  // Fetch Live Index quote details
+  const fetchLiveIndices = async () => {
+    setLoadingIndices(true);
+    try {
+      const indicesList = [
+        { symbol: "^NSEI", name: "NIFTY 50" },
+        { symbol: "^NSEBANK", name: "BANK NIFTY" }
+      ];
+      
+      const promises = indicesList.map(async (idx) => {
+        const details = await fetchStockData(idx.symbol, "1D");
+        return {
+          symbol: idx.symbol,
+          name: idx.name,
+          price: details.price,
+          prevClose: details.prevClose,
+          changePercent: ((details.price - details.prevClose) / details.prevClose) * 100
+        };
+      });
+      
+      const results = await Promise.all(promises);
+      setLiveIndices(results);
+    } catch (err) {
+      console.error("Error fetching live indices:", err);
+    } finally {
+      setLoadingIndices(false);
     }
   };
 
@@ -203,7 +235,7 @@ export default function App() {
       <header className="navbar glassmorphism">
         <div className="nav-brand">
           <Globe size={24} className="icon-blue" />
-          <span>Equi<span className="brand-accent">Mind AI</span></span>
+          <span>Equi<span className="brand-accent">Mind</span></span>
         </div>
 
         {/* Floating Search Panel */}
@@ -258,11 +290,45 @@ export default function App() {
         </div>
 
         <div className="nav-actions">
-          <button className="btn btn-primary flex-align" onClick={() => fetchNiftyDashboardData()}>
+          <button className="btn btn-primary flex-align" onClick={() => { fetchNiftyDashboardData(); fetchLiveIndices(); }}>
             <RefreshCw size={14} style={{ marginRight: "6px" }} /> Refresh Prices
           </button>
         </div>
       </header>
+
+      {/* Live Market Indices Section */}
+      <section className="indices-panel glassmorphism">
+        {loadingIndices ? (
+          <div className="flex-align" style={{ justifyContent: "center", minHeight: "50px" }}>
+            <div className="spinner" style={{ width: "20px", height: "20px", borderWidth: "2px", marginRight: "10px", marginBottom: "0" }}></div>
+            <span style={{ fontSize: "13px" }}>Loading Live Market Benchmarks...</span>
+          </div>
+        ) : (
+          <div className="indices-grid">
+            {liveIndices.map((idx) => (
+              <div 
+                key={idx.symbol}
+                className={`index-card ${selectedSymbol === idx.symbol ? "active" : ""}`}
+                onClick={() => setSelectedSymbol(idx.symbol)}
+              >
+                <div className="index-card-header flex-align" style={{ justifyContent: "space-between" }}>
+                  <span className="index-name">{idx.name}</span>
+                  <span className="index-symbol-tag">{idx.symbol}</span>
+                </div>
+                <div className="index-card-body flex-align" style={{ marginTop: "4px" }}>
+                  <span className="index-price">
+                    {idx.price ? idx.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—"}
+                  </span>
+                  <span className={`index-change flex-align ${idx.changePercent >= 0 ? "change-up" : "change-down"}`}>
+                    {idx.changePercent >= 0 ? <TrendingUp size={14} style={{ marginRight: "4px" }} /> : <TrendingDown size={14} style={{ marginRight: "4px" }} />}
+                    {idx.changePercent >= 0 ? "+" : ""}{idx.changePercent ? idx.changePercent.toFixed(2) : "0.00"}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* 2. Top Nifty Showcase carousel */}
       <section className="nifty-panel glassmorphism">

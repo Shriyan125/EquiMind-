@@ -1,6 +1,6 @@
-# EquiMind AI — Premium Stock Intelligence Dashboard
+# EquiMind — Premium Stock Intelligence Dashboard
 
-EquiMind AI is a luxury, institutional-grade financial analytics dashboard combining real-time global stock tracking, high-performance interactive charting, and state-of-the-art qualitative AI opinion synthesis. Built with a pristine white-beige aesthetic, it bridges quantitative exchange metrics and hedge-fund-level qualitative reports into a unified terminal.
+EquiMind is a luxury, institutional-grade financial analytics dashboard combining real-time global stock tracking, high-performance interactive charting, and state-of-the-art qualitative AI opinion synthesis. Built with a pristine white-beige aesthetic, it bridges quantitative exchange metrics and hedge-fund-level qualitative reports into a unified terminal.
 
 ---
 
