@@ -36,11 +36,16 @@ export default function StockNews({ stock }) {
           response = await fetch(proxyUrl);
         }
 
-        if (!response.ok) {
-          throw new Error(`News API response error (HTTP ${response.status})`);
+        const data = await response.json();
+
+        if (response.status === 401 || (data && data.status === "failure" && data.code === 401)) {
+          throw new Error("Invalid API Key. Please verify your World News API credentials.");
+        } else if (response.status === 402 || (data && data.status === "failure" && data.code === 402)) {
+          throw new Error("World News API daily free limit reached (50 points/day). Please upgrade your plan or try again tomorrow.");
+        } else if (!response.ok || (data && data.status === "failure")) {
+          throw new Error(data?.message || `News API error (HTTP ${response.status})`);
         }
 
-        const data = await response.json();
         if (data && data.news) {
           setNews(data.news);
         } else {
@@ -48,7 +53,7 @@ export default function StockNews({ stock }) {
         }
       } catch (err) {
         console.warn("[StockNews] Failed fetching news: ", err.message);
-        setError("Unable to retrieve live market intelligence for this stock.");
+        setError(err.message || "Unable to retrieve live market intelligence for this stock.");
       } finally {
         setLoading(false);
       }
