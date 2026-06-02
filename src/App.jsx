@@ -16,6 +16,7 @@ import {
 import { fetchStockData, searchStocks, TOP_NIFTY_STOCKS } from "./services/yahooFinance";
 import StockChart from "./components/StockChart";
 import AiAnalysis from "./components/AiAnalysis";
+import StockNews from "./components/StockNews";
 import "./index.css";
 
 export default function App() {
@@ -403,6 +404,9 @@ export default function App() {
                   <span className="stat-value">{stockData.volume.toLocaleString("en-IN")}</span>
                 </div>
               </div>
+
+              {/* Live Market News Section */}
+              <StockNews stock={stockData} />
             </>
           ) : (
             <div className="ai-empty-state" style={{ minHeight: "450px", justifyContent: "center" }}>
