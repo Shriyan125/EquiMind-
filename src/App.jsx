@@ -11,7 +11,8 @@ import {
   RefreshCw, 
   Globe, 
   Building2,
-  X
+  X,
+  AlertCircle
 } from "lucide-react";
 import { fetchStockData, searchStocks, TOP_NIFTY_STOCKS } from "./services/yahooFinance";
 import StockChart from "./components/StockChart";
@@ -45,6 +46,11 @@ export default function App() {
 
   // 5. Config / API key states
   const [apiKey, setApiKey] = useState("");
+
+  // 6. Error states for API pipelines
+  const [errorStock, setErrorStock] = useState(null);
+  const [errorNifty, setErrorNifty] = useState(null);
+  const [errorIndices, setErrorIndices] = useState(null);
 
   // Load API Key and Watchlist on Mount
   useEffect(() => {
@@ -83,12 +89,15 @@ export default function App() {
   useEffect(() => {
     const getStockDetails = async () => {
       setLoadingStock(true);
+      setErrorStock(null);
       setHoveredPoint(null);
       try {
         const data = await fetchStockData(selectedSymbol, timeframe);
         setStockData(data);
       } catch (err) {
         console.error("Error loading selected stock data", err);
+        setErrorStock(err.message || "Failed to retrieve stock data from the server.");
+        setStockData(null);
       } finally {
         setLoadingStock(false);
       }
@@ -99,23 +108,33 @@ export default function App() {
   // Fetch Nifty Carousel brief live metrics
   const fetchNiftyDashboardData = async () => {
     setLoadingNifty(true);
+    setErrorNifty(null);
     try {
       const promises = TOP_NIFTY_STOCKS.map(async (stock) => {
-        // Fetch 1-day range for quick live metrics
-        const details = await fetchStockData(stock.symbol, "1D");
-        return {
-          symbol: stock.symbol,
-          name: stock.name,
-          sector: stock.sector,
-          price: details.price,
-          prevClose: details.prevClose,
-          changePercent: ((details.price - details.prevClose) / details.prevClose) * 100
-        };
+        try {
+          const details = await fetchStockData(stock.symbol, "1D");
+          return {
+            symbol: stock.symbol,
+            name: stock.name,
+            sector: stock.sector,
+            price: details.price,
+            prevClose: details.prevClose,
+            changePercent: ((details.price - details.prevClose) / details.prevClose) * 100
+          };
+        } catch (e) {
+          console.warn(`Failed loading Nifty constituent ${stock.symbol}:`, e.message);
+          return null;
+        }
       });
-      const results = await Promise.all(promises);
+      const results = (await Promise.all(promises)).filter(Boolean);
+      if (results.length === 0) {
+        throw new Error("Failed to load any Nifty constituents. The data service is unavailable.");
+      }
       setNiftyStocks(results);
     } catch (err) {
       console.error("Error fetching Nifty carousel metrics:", err);
+      setErrorNifty(err.message || "Failed to load index constituents.");
+      setNiftyStocks([]);
     } finally {
       setLoadingNifty(false);
     }
@@ -124,6 +143,7 @@ export default function App() {
   // Fetch Live Index quote details
   const fetchLiveIndices = async () => {
     setLoadingIndices(true);
+    setErrorIndices(null);
     try {
       const indicesList = [
         { symbol: "^NSEI", name: "NIFTY 50" },
@@ -131,20 +151,30 @@ export default function App() {
       ];
       
       const promises = indicesList.map(async (idx) => {
-        const details = await fetchStockData(idx.symbol, "1D");
-        return {
-          symbol: idx.symbol,
-          name: idx.name,
-          price: details.price,
-          prevClose: details.prevClose,
-          changePercent: ((details.price - details.prevClose) / details.prevClose) * 100
-        };
+        try {
+          const details = await fetchStockData(idx.symbol, "1D");
+          return {
+            symbol: idx.symbol,
+            name: idx.name,
+            price: details.price,
+            prevClose: details.prevClose,
+            changePercent: ((details.price - details.prevClose) / details.prevClose) * 100
+          };
+        } catch (e) {
+          console.warn(`Failed loading index ${idx.symbol}:`, e.message);
+          return null;
+        }
       });
       
-      const results = await Promise.all(promises);
+      const results = (await Promise.all(promises)).filter(Boolean);
+      if (results.length === 0) {
+        throw new Error("Failed to load market benchmark indices.");
+      }
       setLiveIndices(results);
     } catch (err) {
       console.error("Error fetching live indices:", err);
+      setErrorIndices(err.message || "Failed to load index data.");
+      setLiveIndices([]);
     } finally {
       setLoadingIndices(false);
     }
@@ -303,6 +333,11 @@ export default function App() {
             <div className="spinner" style={{ width: "20px", height: "20px", borderWidth: "2px", marginRight: "10px", marginBottom: "0" }}></div>
             <span style={{ fontSize: "13px" }}>Loading Live Market Benchmarks...</span>
           </div>
+        ) : errorIndices ? (
+          <div className="flex-align" style={{ justifyContent: "center", minHeight: "50px", color: "var(--color-danger)", gap: "8px" }}>
+            <AlertCircle size={16} />
+            <span style={{ fontSize: "13px", fontWeight: "600" }}>{errorIndices}</span>
+          </div>
         ) : (
           <div className="indices-grid">
             {liveIndices.map((idx) => (
@@ -342,6 +377,11 @@ export default function App() {
             <div className="spinner" style={{ marginRight: "10px" }}></div>
             <span>Fetching live NSE board...</span>
           </div>
+        ) : errorNifty ? (
+          <div className="flex-align" style={{ justifyContent: "center", minHeight: "80px", color: "var(--color-danger)", gap: "8px" }}>
+            <AlertCircle size={16} />
+            <span style={{ fontSize: "13px", fontWeight: "600" }}>{errorNifty}</span>
+          </div>
         ) : (
           <div className="nifty-grid">
             {niftyStocks.map((stock) => (
@@ -377,6 +417,23 @@ export default function App() {
               <div className="spinner"></div>
               <h4>Querying Exchange Nodes...</h4>
               <p>Fetching full depth transaction charts and tick metadata.</p>
+            </div>
+          ) : errorStock ? (
+            <div className="ai-empty-state flex-align" style={{ minHeight: "450px", justifyContent: "center", flexDirection: "column", padding: "40px", textAlign: "center" }}>
+              <AlertCircle size={48} style={{ color: "var(--color-danger)", marginBottom: "16px" }} />
+              <h4 style={{ color: "var(--color-text-primary)", fontSize: "18px", fontWeight: "700" }}>Failed to Load Stock Data</h4>
+              <p style={{ color: "var(--color-text-muted)", fontSize: "13px", marginTop: "8px", maxWidth: "360px", lineHeight: "1.5" }}>{errorStock}</p>
+              <button 
+                className="btn btn-primary" 
+                style={{ marginTop: "24px" }}
+                onClick={() => {
+                  const tf = timeframe;
+                  setTimeframe("");
+                  setTimeout(() => setTimeframe(tf), 50);
+                }}
+              >
+                Retry Fetching
+              </button>
             </div>
           ) : stockData ? (
             <>

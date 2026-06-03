@@ -1,4 +1,38 @@
-const CORS_PROXY = "https://corsproxy.io/?";
+// We define a list of public proxies and a helper to rotate through them if one is blocked or rate-limited
+async function fetchFromYahoo(path) {
+  const targetUrl = `https://query1.finance.yahoo.com${path}`;
+  const isDev = import.meta.env.DEV;
+  
+  const attempts = [];
+  
+  // 1. Prioritize Vite local dev proxy when running in development mode
+  if (isDev) {
+    attempts.push(`/api-yahoo${path}`);
+  }
+  
+  // 2. Add public proxy mirrors
+  attempts.push(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+  attempts.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+  attempts.push(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+  attempts.push(targetUrl); // Direct request fallback
+  
+  let lastError = null;
+  for (const url of attempts) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const text = await response.text();
+        // Verify we got the actual JSON payload and not a proxy home page HTML
+        if (text.includes("chart") || text.includes("quotes") || text.includes("result")) {
+          return JSON.parse(text);
+        }
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("All Yahoo Finance proxy pipelines failed.");
+}
 
 export const TOP_NIFTY_STOCKS = [
   { symbol: "RELIANCE.NS", name: "Reliance Industries Ltd.", sector: "Energy" },
@@ -84,15 +118,9 @@ export async function fetchStockData(symbol, range = "1M") {
     interval = "1d";
   }
 
-  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yRange}&interval=${interval}`;
-  const url = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`;
-  
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
+    const path = `/v8/finance/chart/${symbol}?range=${yRange}&interval=${interval}`;
+    const data = await fetchFromYahoo(path);
     
     if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
       throw new Error("No data returned from Yahoo Finance");
@@ -164,24 +192,19 @@ export async function searchStocks(query) {
   }));
   
   // 2. Fetch from Yahoo Finance API for global search as well
-  const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0`;
-  const url = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`;
-  
   let apiMatches = [];
   try {
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.quotes) {
-        apiMatches = data.quotes
-          .filter(q => q.quoteType === "EQUITY" || q.quoteType === "ETF")
-          .map(q => ({
-            symbol: q.symbol,
-            name: q.longname || q.shortname || q.symbol,
-            exchange: q.exchDisp || q.exchange || "NSE",
-            type: q.quoteType
-          }));
-      }
+    const path = `/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0`;
+    const data = await fetchFromYahoo(path);
+    if (data.quotes) {
+      apiMatches = data.quotes
+        .filter(q => q.quoteType === "EQUITY" || q.quoteType === "ETF")
+        .map(q => ({
+          symbol: q.symbol,
+          name: q.longname || q.shortname || q.symbol,
+          exchange: q.exchDisp || q.exchange || "NSE",
+          type: q.quoteType
+        }));
     }
   } catch (error) {
     console.warn("[YahooFinance Service] API search failed, relying on rich local index.");
