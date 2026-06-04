@@ -5,10 +5,8 @@ async function fetchFromYahoo(path) {
   
   const attempts = [];
   
-  // 1. Prioritize Vite local dev proxy when running in development mode
-  if (isDev) {
-    attempts.push(`/api-yahoo${path}`);
-  }
+  // 1. Prioritize Vite local dev proxy / Vercel production proxy
+  attempts.push(`/api-yahoo${path}`);
   
   // 2. Add public proxy mirrors
   attempts.push(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
