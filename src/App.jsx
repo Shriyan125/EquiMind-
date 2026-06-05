@@ -14,6 +14,7 @@ import {
   X,
   AlertCircle
 } from "lucide-react";
+import { Analytics } from '@vercel/analytics/react';
 import { fetchStockData, searchStocks, TOP_NIFTY_STOCKS } from "./services/yahooFinance";
 import StockChart from "./components/StockChart";
 import AiAnalysis from "./components/AiAnalysis";
@@ -603,6 +604,7 @@ export default function App() {
         </aside>
       </div>
 
+      <Analytics />
     </div>
   );
 }
