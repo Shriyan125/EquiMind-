@@ -129,13 +129,17 @@ export async function fetchStockData(symbol, range = "1M") {
     const timestamps = result.timestamp || [];
     const quote = result.indicators.quote[0] || {};
     const closes = quote.close || [];
+    const volumes = quote.volume || [];
     
     // Clean up close price array and timestamps (removing null values)
     const history = timestamps.map((timestamp, index) => ({
       date: new Date(timestamp * 1000),
       price: closes[index] !== null && closes[index] !== undefined 
         ? parseFloat(closes[index].toFixed(2)) 
-        : null
+        : null,
+      volume: volumes[index] !== null && volumes[index] !== undefined
+        ? volumes[index]
+        : 0
     })).filter(item => item.price !== null);
 
     // If history is empty but a regular market price exists, add a placeholder point
@@ -283,7 +287,8 @@ function getMockStockData(symbol, range) {
     currentPrice = currentPrice * (1 + changePercent);
     history.push({
       date: date,
-      price: parseFloat(currentPrice.toFixed(2))
+      price: parseFloat(currentPrice.toFixed(2)),
+      volume: Math.floor(10000 + Math.random() * 500000)
     });
   }
 
